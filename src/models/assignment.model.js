@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 const { Schema, model } = mongoose;
 
 const assignmentSchema = new Schema({
+    // UPDATE THIS: Link to a specific technique from the syllabus
     technique: {
         type: Schema.Types.ObjectId,
         ref: 'Technique',

@@ -10,20 +10,25 @@ import sendEmail from "../utils/sendEmail.js";
 
 const registerUser = asyncHandler(async (req, res) => {
     // 1. Get user details from request body
-    const { email, username, password, role, fullname } = req.body;
+    const { email, username, password, role, fullname, countryCode, number } = req.body;
 
     // 2. Validate fields
-    if ([username, email, fullname, password, role].some((field) => !field?.trim())) {
+    if ([username, email, fullname, password, role, countryCode, number].some((field) => !field?.trim())) {
         throw new ApiError(400, "All fields are required");
     }
 
-    // 3. Check if user already exists
-    const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+    // 3. Combine phone number in E.164 format
+    const phoneNumber = `${countryCode}${number}`; // e.g. +91 + 9876543210 → +919876543210
+
+    // 4. Check if user already exists (by username/email/phone)
+    const existingUser = await User.findOne({ 
+        $or: [{ username }, { email }, { phoneNumber }] 
+    });
     if (existingUser) {
-        throw new ApiError(409, "User with email or username already exists");
+        throw new ApiError(409, "User with email, username, or phone number already exists");
     }
 
-    // 4. Handle profile image upload
+    // 5. Handle profile image upload
     const profileImagePath = req.files?.profileImage?.[0]?.path;
     if (!profileImagePath) {
         throw new ApiError(400, "Profile image is required");
@@ -34,21 +39,24 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Failed to upload profile image");
     }
 
-    // 5. Create and save the new user
+    // 6. Create and save the new user
     const user = await User.create({
         username: username.toLowerCase(),
         email,
         password,
         role,
         fullname,
-        profileImage: profileImage.url // Use the URL from Cloudinary response
+        phoneNumber,
+        profileImage: profileImage.url
     });
 
     user.refreshToken = user.generateRefreshToken();
     await user.save();
+
     const createdUser = await User.findById(user._id).select("-password -refreshToken");
     res.status(201).json({ message: "User registered successfully", user: createdUser });
 });
+
 
 const generaterefreshandaccesstoken = async (userId) => {
     try {
@@ -217,25 +225,34 @@ const resetPassword = asyncHandler(async (req, res) => {
     res.status(200).json({ message: "Password reset successful" });
   });
 
-const updateProfile = asyncHandler(async (req, res) => {
-    const { username, fullname } = req.body;
+  const updateProfile = asyncHandler(async (req, res) => {
+    const { username, fullname, countryCode, number } = req.body;
     const updateData = {};
-    if(!username || !fullname){
-        throw new ApiError(400,"Username and Fullname are required");
+
+    if (!username || !fullname) {
+        throw new ApiError(400, "Username and Fullname are required");
     }
-    const user = await User.findById(req.user._id);
-    if(username) updateData.username = username.toLowerCase();
-    if(fullname) updateData.fullname = fullname;
-    const profileImagefile = req.files?.profileImage?.[0]?.path;
-    if(profileImagefile){
+
+    if (username) updateData.username = username.toLowerCase();
+    if (fullname) updateData.fullname = fullname;
+
+    // Handle phone update
+    if (countryCode && number) {
+        updateData.phoneNumber = `${countryCode}${number}`;
+    }
+
+    // Handle profile image update
+    const profileImagePath = req.files?.profileImage?.[0]?.path;
+    if (profileImagePath) {
         try {
-            const profileImageURL = await uploadOnCloudinary(profileImagefile.path);
-            updateData.profileImage = profileImageURL;
+            const profileImage = await uploadOnCloudinary(profileImagePath);
+            updateData.profileImage = profileImage.url;
         } catch (err) {
             console.error("Cloudinary error:", err);
             return res.status(500).json({ error: "Failed to upload avatar", details: err.message });
         }
     }
+
     const updatedUser = await User.findByIdAndUpdate(
         req.user._id,
         { $set: updateData },
@@ -243,8 +260,8 @@ const updateProfile = asyncHandler(async (req, res) => {
     ).select("-password -refreshToken");
 
     return res
-    .status(200)
-    .json(new ApiResponse(200,updatedUser,"User details updated successfully"));
+        .status(200)
+        .json(new ApiResponse(200, updatedUser, "User details updated successfully"));
 });
 
 

@@ -8,7 +8,7 @@ const userSchema = new Schema({
         type: String,
         required: true,
         trim: true,
-        index: true // Improves search performance
+        index: true
     },
     fullname: {
         type: String,
@@ -35,12 +35,19 @@ const userSchema = new Schema({
     refreshToken: {
         type: String,
     },
-    profileImage:{
+    profileImage: {
         type: String,
         required: true,
     },
-    resetPasswordToken: {type:String},
-    resetPasswordExpires: {type:Date},
+    phoneNumber: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
+        match: [/^\+\d{1,3}\d{6,14}$/, "Please enter a valid phone number with country code"]
+    },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
 }, { timestamps: true });
 
 userSchema.pre("save", async function(next) {
