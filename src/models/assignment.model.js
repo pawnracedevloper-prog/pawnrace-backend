@@ -26,4 +26,4 @@ const assignmentSchema = new Schema({
     }
 }, { timestamps: true });
 
-export const Assignment = model('Assignment', assignmentSchema);
+export const Assignment = model('Assignment', assignmentSchema); 
