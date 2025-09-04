@@ -35,10 +35,6 @@ const userSchema = new Schema({
     refreshToken: {
         type: String,
     },
-    profileImage: {
-        type: String,
-        required: true,
-    },
     phoneNumber: {
         type: String,
         required: true,

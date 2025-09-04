@@ -11,15 +11,12 @@ import sendEmail from "../utils/sendEmail.js";
 const registerUser = asyncHandler(async (req, res) => {
     // 1. Get user details from request body
     const { email, username, password, role, fullname, countryCode, number } = req.body;
-
     // 2. Validate fields
     if ([username, email, fullname, password, role, countryCode, number].some((field) => !field?.trim())) {
         throw new ApiError(400, "All fields are required");
     }
-
     // 3. Combine phone number in E.164 format
     const phoneNumber = `${countryCode}${number}`; // e.g. +91 + 9876543210 → +919876543210
-
     // 4. Check if user already exists (by username/email/phone)
     const existingUser = await User.findOne({ 
         $or: [{ username }, { email }, { phoneNumber }] 
@@ -28,16 +25,17 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(409, "User with email, username, or phone number already exists");
     }
 
-    // 5. Handle profile image upload
-    const profileImagePath = req.files?.profileImage?.[0]?.path;
-    if (!profileImagePath) {
-        throw new ApiError(400, "Profile image is required");
-    }
+    // // 5. Handle profile image upload
+    // const profileImagePath = req.files?.profileImage?.[0]?.path;
+    // if (!profileImagePath) {
+    //     throw new ApiError(400, "Profile image is required");
+    // }
 
-    const profileImage = await uploadOnCloudinary(profileImagePath);
-    if (!profileImage) {
-        throw new ApiError(500, "Failed to upload profile image");
-    }
+    // const profileImage = await uploadOnCloudinary(profileImagePath);
+    // console.log("Cloudinary Response Object:", profileImage);
+    // if (!profileImage) {
+    //     throw new ApiError(500, "Failed to upload profile image");
+    // }
 
     // 6. Create and save the new user
     const user = await User.create({
@@ -47,7 +45,7 @@ const registerUser = asyncHandler(async (req, res) => {
         role,
         fullname,
         phoneNumber,
-        profileImage: profileImage.url
+        // profileImage: profileImage.secure_url
     });
 
     user.refreshToken = user.generateRefreshToken();
@@ -225,7 +223,7 @@ const resetPassword = asyncHandler(async (req, res) => {
     res.status(200).json({ message: "Password reset successful" });
   });
 
-  const updateProfile = asyncHandler(async (req, res) => {
+const updateProfile = asyncHandler(async (req, res) => {
     const { username, fullname, countryCode, number } = req.body;
     const updateData = {};
 
@@ -241,17 +239,17 @@ const resetPassword = asyncHandler(async (req, res) => {
         updateData.phoneNumber = `${countryCode}${number}`;
     }
 
-    // Handle profile image update
-    const profileImagePath = req.files?.profileImage?.[0]?.path;
-    if (profileImagePath) {
-        try {
-            const profileImage = await uploadOnCloudinary(profileImagePath);
-            updateData.profileImage = profileImage.url;
-        } catch (err) {
-            console.error("Cloudinary error:", err);
-            return res.status(500).json({ error: "Failed to upload avatar", details: err.message });
-        }
-    }
+    // // Handle profile image update
+    // const profileImagePath = req.files?.profileImage?.[0]?.path;
+    // if (profileImagePath) {
+    //     try {
+    //         const profileImage = await uploadOnCloudinary(profileImagePath);
+    //         updateData.profileImage = profileImage.url;
+    //     } catch (err) {
+    //         console.error("Cloudinary error:", err);
+    //         return res.status(500).json({ error: "Failed to upload avatar", details: err.message });
+    //     }
+    // }
 
     const updatedUser = await User.findByIdAndUpdate(
         req.user._id,

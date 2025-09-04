@@ -117,4 +117,6 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
+PawnRace_Complete_Workflow.postman_collection.json
+
 # End of https://mrkandreev.name/snippets/gitignore-generator/#Node
