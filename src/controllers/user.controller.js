@@ -130,58 +130,33 @@ const userlogout = asyncHandler(async(req,res)=>{
 
 });
 
-const refreshTokenHandler = asyncHandler(async (req, res) => {
-    // 1. Safely get the refresh token from the httpOnly cookie
-    const incomingRefreshToken = req.cookies?.refreshToken;
-
-    // 2. Check if the token exists. If not, send a clear error.
-    if (!incomingRefreshToken) {
-        throw new ApiError(401, "Unauthorized request: No refresh token provided");
+const refreshTokenHandler = asyncHandler(async(req,res)=>{
+    const token = req.cookies?.refreshToken || req.body.refreshToken;
+    if(!token){
+        throw new ApiError(401,"No token provided");
     }
-
     try {
-        // 3. Verify the token using your JWT secret
-        const decodedToken = jwt.verify(
-            incomingRefreshToken,
-            process.env.REFRESH_TOKEN_SECRET
-        );
-
-        // 4. Find the user in the database based on the ID from the token
-        const user = await User.findById(decodedToken?._id);
-
-        if (!user) {
-            throw new ApiError(401, "Invalid refresh token: User not found");
+        const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
+        const user = await User.findById(decoded?._id);
+        if(!user || user.refreshToken !== token){
+            throw new ApiError(403,"Invalid refresh token");
         }
-
-        // 5. IMPORTANT SECURITY STEP: Check if the token from the cookie matches the one in the database.
-        // This invalidates old tokens if a new one has been issued.
-        if (incomingRefreshToken !== user.refreshToken) {
-            throw new ApiError(401, "Refresh token is expired or has been used");
-        }
-
-        // 6. If all checks pass, generate a new pair of tokens
-        const { accessToken, refreshToken: newRefreshToken } = await generaterefreshandaccesstoken(user._id);
-
-        // 7. Send the new tokens back to the client
+        const { accessToken,refreshToken:  newrefreshToken } = await generaterefreshandaccesstoken(user._id);
         const options = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production' // Set secure flag in production
-        };
-
-        return res
-            .status(200)
-            .cookie("refreshToken", newRefreshToken, options)
-            .json(
-                new ApiResponse(
-                    200,
-                    { user: { _id: user._id, username: user.username, email: user.email, role: user.role }, accessToken },
-                    "Access token refreshed successfully"
-                )
-            );
-
+            httpOnly: true, // Prevents client-side access to the cookie
+            secure: true
+         }
+         return res.status(200)
+         .cookie("refreshToken", newrefreshToken, options)
+         .cookie("accessToken", accessToken, options)
+         .json(
+            new ApiResponse(200,{
+                accessToken,
+                refreshToken: newrefreshToken
+            }, "Token refreshed successfully")
+         )
     } catch (error) {
-        // This will catch errors from jwt.verify (e.g., expired token)
-        throw new ApiError(401, error?.message || "Invalid or expired refresh token");
+        throw new ApiError(401,"Invalid or expired token");
     }
 });
 
