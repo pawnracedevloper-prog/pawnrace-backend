@@ -18,22 +18,33 @@ app.use(limiter); // Apply rate limiting to all requests
 // --- End of Security Middleware ---
 
 
-const allowedOrigins = process.env.CORS_ORIGIN 
-    ? process.env.CORS_ORIGIN.split(',') 
-    : ["http://localhost:8080"]; // A default for safety
+// --- START OF DIAGNOSTIC CORS CONFIGURATION ---
 
-app.use(cors({
-    origin: function (origin, callback) {
-        // allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) === -1) {
-            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-            return callback(new Error(msg), false);
-        }
-        return callback(null, true);
-    },
-    credentials: true
-}));
+// 1. Log the raw environment variable to see what Render is providing.
+console.log("Reading CORS_ORIGIN from environment:", process.env.CORS_ORIGIN);
+
+// 2. Safely parse the environment variable into an array.
+//    The `|| ''` prevents a crash if the variable is missing.
+const allowedOrigins = (process.env.CORS_ORIGIN || '').split(',').map(origin => origin.trim());
+
+// 3. Log the final array that will be used for the CORS check.
+console.log("Server configured with Allowed CORS Origins:", allowedOrigins);
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // This logic is correct. It will check if the incoming `origin` is in our `allowedOrigins` array.
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.error(`CORS Blocked: Origin '${origin}' is not in the allowed list.`);
+      callback(new Error('This origin is not allowed by CORS'));
+    }
+  },
+  credentials: true // Crucial for cookies
+};
+
+// 4. IMPORTANT: Ensure this line is placed BEFORE your API routes (app.use('/api/v1/...')).
+app.use(cors(corsOptions));
 
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
