@@ -50,6 +50,7 @@ const seedDatabase = async () => {
         });
         console.log("Syllabi created.");
 
+        //Nothing
         // --- END OF DATA SECTION ---
 
         console.log('Database seeded successfully! 🌱');
