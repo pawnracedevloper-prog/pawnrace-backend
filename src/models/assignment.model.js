@@ -2,28 +2,32 @@ import mongoose from 'mongoose';
 const { Schema, model } = mongoose;
 
 const assignmentSchema = new Schema({
-    // UPDATE THIS: Link to a specific technique from the syllabus
-    technique: {
-        type: Schema.Types.ObjectId,
-        ref: 'Technique',
-        required: true
-    },
     course: {
         type: Schema.Types.ObjectId,
         ref: 'Course',
-        required: true
+        required: true,
     },
-    description: { // Coach can add extra instructions
+    coach: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+    },
+    title: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
     },
-    dueDate: {
-        type: Date,
-        required: true
+    assignmentLink: {
+        type: String,
+        required: true,
+        trim: true,
     },
-    solution: {
-        type: String
+    status: {
+        type: String,
+        enum: ['assigned', 'completed'], // Corrected enum
+        default: 'assigned',
     }
 }, { timestamps: true });
 
-export const Assignment = model('Assignment', assignmentSchema); 
+export const Assignment = model('Assignment', assignmentSchema);
+
