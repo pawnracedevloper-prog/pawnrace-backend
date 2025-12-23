@@ -1,50 +1,56 @@
-import asyncHandler from '../utils/asyncHandler.js';
-import ApiError from '../utils/ApiError.js';
-import  ApiResponse  from '../utils/ApiResponse.js';
-import { Course } from '../models/course.model.js';
-import { Message } from '../models/message.model.js';
-import { User } from '../models/user.model.js';
-import mongoose from 'mongoose';
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { Message } from "../models/message.model.js";
+import { User } from "../models/user.model.js";
+import { Course } from "../models/course.model.js"; 
 
-// For a coach to get a list of all unique students in their courses
-const getCoachsStudents = asyncHandler(async (req, res) => {
-    const coachId = req.user._id;
+// Get all students associated with a coach
+export const getCoachStudents = asyncHandler(async (req, res) => {
+    const { coachId } = req.params;
 
-    // Find all courses taught by this coach
-    const courses = await Course.find({ coach: coachId }).populate('students', 'fullname username');
+    // 1. Find all courses where this user is the coach
+    // 2. Populate the 'students' field from those courses
+    const courses = await Course.find({ coach: coachId }).populate("students", "fullname email avatar");
 
     if (!courses) {
-        return res.status(200).json(new ApiResponse(200, [], "Coach has no courses or students yet."));
+        return res.status(200).json(new ApiResponse(200, [], "No students found"));
     }
 
-    // Create a unique list of students
-    const studentMap = new Map();
+    // 3. Extract unique students from all courses
+    const uniqueStudentsMap = new Map();
     courses.forEach(course => {
         course.students.forEach(student => {
-            if (!studentMap.has(student._id.toString())) {
-                studentMap.set(student._id.toString(), student);
+            if (!uniqueStudentsMap.has(student._id.toString())) {
+                uniqueStudentsMap.set(student._id.toString(), {
+                    _id: student._id,
+                    fullname: student.fullname,
+                    email: student.email,
+                    //avatar: student.avatar // Ensure your User model has an avatar field or handle it on frontend
+                });
             }
         });
     });
 
-    const uniqueStudents = Array.from(studentMap.values());
+    const students = Array.from(uniqueStudentsMap.values());
 
-    return res.status(200).json(new ApiResponse(200, uniqueStudents, "Students retrieved successfully"));
+    return res
+        .status(200)
+        .json(new ApiResponse(200, students, "Students fetched successfully"));
 });
 
-// Get the message history between the logged-in user and another user
-const getConversationHistory = asyncHandler(async (req, res) => {
-    const senderId = req.user._id;
-    const receiverId = new mongoose.Types.ObjectId(req.params.receiverId);
+// Get conversation history between two users
+export const getConversation = asyncHandler(async (req, res) => {
+    const { userId1, userId2 } = req.params;
 
-    // Create the conversation ID by sorting the user IDs alphabetically
-    const conversationId = [senderId, receiverId].sort().join('_');
+    // Determine the unique conversation ID used in your message model logic
+    // (Sort IDs to ensure consistency regardless of who is sender/receiver)
+    const conversationId = [userId1, userId2].sort().join('_');
 
     const messages = await Message.find({ conversationId })
-        .sort({ createdAt: 1 }) // Fetch messages in chronological order
-        .populate('sender', 'username fullname');
+        .sort({ createdAt: 1 }); // Oldest messages first
 
-    return res.status(200).json(new ApiResponse(200, messages, "Conversation history retrieved successfully"));
+    return res
+        .status(200)
+        .json(new ApiResponse(200, messages, "Conversation fetched successfully"));
 });
-
-export { getCoachsStudents, getConversationHistory };

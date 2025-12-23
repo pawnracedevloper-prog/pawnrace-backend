@@ -1,13 +1,20 @@
-import { Router } from 'express';
-import { getCoachsStudents, getConversationHistory } from '../controllers/chat.controller.js';
-import { verifyJWT, verifyRole } from '../middlewares/auth.middleware.js';
+import { Router } from "express";
+import { verifyJWT } from "../middlewares/auth.middleware.js";
+import { getCoachStudents, getConversation } from "../controllers/chat.controller.js";
 
 const router = Router();
 
-// A coach gets a list of their students
-router.route('/students').get(verifyJWT, verifyRole('coach'), getCoachsStudents);
+// Apply authentication middleware to all chat routes
+router.use(verifyJWT);
 
-// Any authenticated user gets their chat history with another user
-router.route('/history/:receiverId').get(verifyJWT, getConversationHistory);
+// Route to get students for a coach
+// Matches frontend: /api/v1/chat/coach/:id/students
+router.route("/coach/:coachId/students").get(getCoachStudents);
+
+// Route to get conversation history
+// Matches frontend: /api/v1/chat/conversation/:senderId/:receiverId
+// Note: In your controller, we called parameters userId1 and userId2 for clarity, 
+// but the route path needs to match what your frontend sends.
+router.route("/conversation/:userId1/:userId2").get(getConversation);
 
 export default router;
