@@ -1,7 +1,5 @@
 import { Tournament } from '../models/tournament.model.js';
 
-// @desc    Get all tournaments
-// @route   GET /api/tournaments
 export const getTournaments = async (req, res) => {
     try {
         // Sort by date (newest first)
@@ -12,8 +10,6 @@ export const getTournaments = async (req, res) => {
     }
 };
 
-// @desc    Create a new tournament
-// @route   POST /api/tournaments
 export const createTournament = async (req, res) => {
     try {
         const { name, date, link } = req.body;
