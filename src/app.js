@@ -60,6 +60,8 @@ import submissionRouter from "./routes/submission.route.js";
 import classRouter from "./routes/class.route.js"; 
 import chatRouter from "./routes/chat.route.js";
 import testRouter from "./routes/test.route.js";
+import tournamentRoutes from './routes/tournament.route.js';
+
 
 // --- Mount Routers ---
 app.use("/api/v1/users", userRouter);
@@ -69,6 +71,8 @@ app.use("/api/v1/submissions", submissionRouter);
 app.use("/api/v1/classes", classRouter); 
 app.use("/api/v1/chats", chatRouter);
 app.use("/api/v1/tests", testRouter);
+app.use('/api/v1/tournaments', tournamentRoutes);
+
 
 // --- Global Error Handler ---
 app.use((err, req, res, next) => {
