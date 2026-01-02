@@ -17,7 +17,21 @@ const tournamentSchema = new Schema({
         required: true,
         trim: true,
     },
-    // Optional: Reference to the coach who created it
+    status: {
+        type: String,
+        enum: ['active', 'completed'],
+        default: 'active'
+    },
+    winner: {
+        type: String,
+        default: "NA",
+        trim: true
+    },
+    review: {
+        type: String,
+        default: "NA",
+        trim: true
+    },
     createdBy: {
         type: Schema.Types.ObjectId,
         ref: 'User', 
