@@ -88,3 +88,37 @@ export const getLevelContent = async (req, res) => {
         res.status(500).json({ message: "Error fetching syllabus", error: error.message });
     }
 };
+
+export const getTechniques = async (req, res) => {
+    try {
+        const techniques = await Technique.find();
+        res.status(200).json(techniques);
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching techniques", error: error.message });
+    }
+};
+
+export const markTechniqueAsCompleted = async (req, res) => {
+    try {
+        const { techniqueId } = req.body;
+
+        // 1. Find the technique
+        const technique = await Technique.findById(techniqueId);
+        
+        if (!technique) {
+            return res.status(404).json({ message: "Technique not found" });
+        }
+
+        // 2. Toggle the value (If true -> make false, If false -> make true)
+        technique.status = !technique.status;
+        await technique.save();
+
+        res.status(200).json({ 
+            message: `Technique marked as ${technique.status ? 'Completed' : 'Incomplete'}`, 
+            technique: technique 
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: "Error updating status", error: error.message });
+    }
+};

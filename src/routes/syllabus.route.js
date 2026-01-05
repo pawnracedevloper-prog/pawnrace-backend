@@ -3,18 +3,18 @@ import {
     addTechnique, 
     deleteTechnique, 
     updateTechnique, 
-    getLevelContent 
+    getLevelContent,
+    getTechniques,
+    markTechniqueAsCompleted 
 } from '../controllers/syllabus.controller.js';
 
 const router = express.Router();
 
-router.get('/:level', getLevelContent);
-
+router.get('/all', getTechniques);
 router.post('/add', addTechnique);
-
+router.delete('/delete', deleteTechnique);
 router.put('/update', updateTechnique);
-
-
-router.delete('/delete', deleteTechnique); 
+router.patch('/complete', markTechniqueAsCompleted);
+router.get('/:level', getLevelContent);
 
 export default router;
