@@ -7,10 +7,15 @@ const techniqueSchema = new Schema({
         required: true,
         trim: true
     },
-    lichessUrl: {
+    pgn: {
         type: String,
-        required: true
+        required: true,
+    },
+    description: {
+        type: String,
+        default: ""
     }
+    
 });
 
 export const Technique = model('Technique', techniqueSchema);
