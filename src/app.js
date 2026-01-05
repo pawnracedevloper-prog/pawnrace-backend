@@ -62,6 +62,8 @@ import chatRouter from "./routes/chat.route.js";
 import testRouter from "./routes/test.route.js";
 import tournamentRoutes from './routes/tournament.route.js';
 import newclassRouter from './routes/new_class.route.js';
+import syllabusRouter from './routes/syllabus.route.js';
+
 
 // --- Mount Routers ---
 app.use("/api/v1/users", userRouter);
@@ -73,6 +75,7 @@ app.use("/api/v1/chats", chatRouter);
 app.use("/api/v1/tests", testRouter);
 app.use('/api/v1/tournaments', tournamentRoutes);
 app.use('/api/v1/newclasses', newclassRouter);
+app.use('/api/v1/syllabus', syllabusRouter);
 
 
 // --- Global Error Handler ---
