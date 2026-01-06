@@ -14,13 +14,7 @@ const techniqueSchema = new Schema({
     description: {
         type: String,
         default: ""
-    },
-    status:{
-        type: String,
-        enum: ['pending', 'completed'],
-        default: 'pending'
     }
-    
 });
 
 export const Technique = model('Technique', techniqueSchema);
