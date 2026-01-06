@@ -3,7 +3,8 @@ import {
     scheduleClass,
     updateClass,
     deleteClass,
-    getClassesForCourse
+    getClassesForCourse,
+    getClassByRoomId
 } from '../controllers/new_class.controller.js';
 import { verifyJWT, verifyRole } from '../middlewares/auth.middleware.js';
 
@@ -19,5 +20,7 @@ router.route("/:classId")
 
 // Get list of classes
 router.route("/course/:courseId").get(verifyJWT, getClassesForCourse);
+router.route("/room/:roomId").get(verifyJWT, getClassByRoomId);
+
 
 export default router;

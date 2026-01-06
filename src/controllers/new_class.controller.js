@@ -111,9 +111,22 @@ const getClassesForCourse = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, classes, "Classes retrieved successfully"));
 });
 
+const getClassByRoomId = asyncHandler(async (req, res) => {
+    const { roomId } = req.params;
+    
+    const classSession = await NewClass.findOne({ roomId }).populate('course');
+    
+    if (!classSession) {
+        throw new ApiError(404, "Class session not found");
+    }
+
+    return res.status(200).json(new ApiResponse(200, classSession, "Class details fetched"));
+});
+
 export {
     scheduleClass,
     updateClass,
     deleteClass,
-    getClassesForCourse
+    getClassesForCourse,
+    getClassByRoomId
 };
