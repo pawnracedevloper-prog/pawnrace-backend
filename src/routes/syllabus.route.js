@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { 
     addTechnique, 
+    addChapter, // <--- Import this
     getSyllabusForCourse, 
-    toggleTechniqueForCourse,
+    toggleChapter, // <--- Renamed from toggleTechnique
     getAllSyllabus,
     getGlobalSyllabus
 } from '../controllers/syllabus.controller.js';
@@ -10,13 +11,15 @@ import { verifyJWT } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-// --- Global Management (Coach Database) ---
-router.post('/add', verifyJWT, addTechnique);           // Add new card
-router.get('/all', verifyJWT, getAllSyllabus);          // Get EVERYTHING (For Modal)
-router.get('/level/:level', verifyJWT, getGlobalSyllabus); // Get specific level (For DB View)
+// Global / Authoring
+router.post('/add', verifyJWT, addTechnique); // Create Container
+router.post('/chapter/add', verifyJWT, addChapter); // Create Chapter
 
-// --- Course Specific (Classroom) ---
-router.get('/course/:courseId', verifyJWT, getSyllabusForCourse); // Get Cards + Progress
-router.patch('/course/toggle', verifyJWT, toggleTechniqueForCourse); // Mark Done/Undone
+router.get('/all', verifyJWT, getAllSyllabus);
+router.get('/level/:level', verifyJWT, getGlobalSyllabus);
+
+// Course / Progress
+router.get('/course/:courseId', verifyJWT, getSyllabusForCourse);
+router.patch('/course/toggle', verifyJWT, toggleChapter); // Toggle Chapter
 
 export default router;

@@ -5,21 +5,16 @@ const courseSchema = new Schema({
     title: { type: String, required: true, trim: true },
     coach: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     students: [{ type: Schema.Types.ObjectId, ref: 'User' }],
-    level: { 
-        type: String, 
-        default: 'Beginner 1' 
-    },
-    // 1. LINK TO SYLLABUS 
-    syllabus: {
-        type: Schema.Types.ObjectId,
-        ref: 'Syllabus', 
-        required: true
-    },
+    
+    // Level Cache
+    level: { type: String, default: 'Beginner 1' },
 
-    // 2. TRACK PROGRESS 
-    completedTechniques: [{
-        type: Schema.Types.ObjectId,
-        ref: 'Technique'
+    // Link to Syllabus
+    syllabus: { type: Schema.Types.ObjectId, ref: 'Syllabus', required: true },
+
+    // CHANGED: We now track completed CHAPTER IDs, not Technique IDs
+    completedChapters: [{
+        type: Schema.Types.ObjectId
     }]
 }, { timestamps: true });
 

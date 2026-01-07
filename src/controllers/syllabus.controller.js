@@ -4,30 +4,53 @@ import { Course } from '../models/course.model.js';
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 
-// Define the Progression Path
 const LEVEL_ORDER = [
     'Beginner 1', 'Beginner 2', 'Beginner 3', 
     'Intermediate 1', 'Intermediate 2', 'Intermediate 3', 
     'Advanced 1', 'Advanced 2', 'Advanced 3', 'Master'
 ];
 
-// ... (addTechnique remains the same) ...
+// --- 1. ADD TECHNIQUE (Container Only) ---
 export const addTechnique = async (req, res) => {
     try {
-        const { level, name, pgn, description } = req.body;
-        const newTechnique = await Technique.create({ name, pgn, description });
+        const { level, name, description } = req.body;
+
+        const newTechnique = await Technique.create({ name, description, chapters: [] });
+
         const updatedSyllabus = await Syllabus.findOneAndUpdate(
             { level: level }, 
             { $addToSet: { techniques: newTechnique._id } },
             { new: true, upsert: true } 
         );
-        res.status(201).json(new ApiResponse(201, { technique: newTechnique, syllabus: updatedSyllabus }, "Technique added"));
+
+        res.status(201).json(new ApiResponse(201, newTechnique, "Technique container created"));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// ... (getSyllabusForCourse remains the same) ...
+// --- 2. ADD CHAPTER (To Existing Technique) ---
+export const addChapter = async (req, res) => {
+    try {
+        const { techniqueId, pgn } = req.body;
+
+        const technique = await Technique.findById(techniqueId);
+        if (!technique) throw new ApiError(404, "Technique not found");
+
+        // Auto-Name: "Chapter X" based on current length
+        const nextNum = technique.chapters.length + 1;
+        const name = `Chapter ${nextNum}`;
+
+        technique.chapters.push({ name, pgn });
+        await technique.save();
+
+        res.status(200).json(new ApiResponse(200, technique, "Chapter added"));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// --- 3. GET SYLLABUS (With Chapter Progress) ---
 export const getSyllabusForCourse = async (req, res) => {
     try {
         const { courseId } = req.params;
@@ -38,7 +61,7 @@ export const getSyllabusForCourse = async (req, res) => {
 
         const targetLevel = level || course.level || "Beginner 1";
 
-        // Auto-fix Syllabus Link if broken
+        // Auto-Sync Logic
         let masterSyllabus = await Syllabus.findOne({ level: targetLevel });
         if (!masterSyllabus) masterSyllabus = await Syllabus.create({ level: targetLevel, techniques: [] });
 
@@ -49,62 +72,74 @@ export const getSyllabusForCourse = async (req, res) => {
 
         await course.populate({ path: 'syllabus', populate: { path: 'techniques' } });
 
-        const completedList = course.completedTechniques || [];
-        const techniquesWithStatus = course.syllabus.techniques.map(tech => ({
-            _id: tech._id,
-            name: tech.name,
-            pgn: tech.pgn,
-            description: tech.description,
-            status: completedList.some(id => id.toString() === tech._id.toString()) ? 'completed' : 'pending'
-        }));
+        // Completed Chapters Bucket
+        const completedChapters = (course.completedChapters || []).map(id => id.toString());
 
-        res.status(200).json(new ApiResponse(200, techniquesWithStatus, `Syllabus for ${targetLevel} fetched`));
+        // Map Data
+        const techniquesWithStatus = course.syllabus.techniques.map(tech => {
+            // Map chapters with status
+            const chaptersWithStatus = tech.chapters.map(ch => ({
+                _id: ch._id,
+                name: ch.name,
+                pgn: ch.pgn,
+                status: completedChapters.includes(ch._id.toString()) ? 'completed' : 'pending'
+            }));
+
+            return {
+                _id: tech._id,
+                name: tech.name,
+                description: tech.description,
+                chapters: chaptersWithStatus
+            };
+        });
+
+        res.status(200).json(new ApiResponse(200, techniquesWithStatus, `Syllabus for ${targetLevel}`));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// --- 3. TOGGLE & LEVEL UP (UPDATED) ---
-export const toggleTechniqueForCourse = async (req, res) => {
+// --- 4. TOGGLE CHAPTER & LEVEL UP ---
+export const toggleChapter = async (req, res) => {
     try {
-        const { courseId, techniqueId } = req.body;
+        const { courseId, chapterId } = req.body;
 
-        const course = await Course.findById(courseId).populate('syllabus'); // Need syllabus to check totals
+        const course = await Course.findById(courseId).populate({
+            path: 'syllabus',
+            populate: { path: 'techniques' }
+        });
         if (!course) throw new ApiError(404, "Course not found");
 
-        if (!course.completedTechniques) course.completedTechniques = [];
+        if (!course.completedChapters) course.completedChapters = [];
 
-        const index = course.completedTechniques.indexOf(techniqueId);
+        const index = course.completedChapters.indexOf(chapterId);
         let status = '';
         let leveledUp = false;
         let nextLevelName = '';
 
         if (index === -1) {
             // MARK COMPLETE
-            course.completedTechniques.push(techniqueId);
+            course.completedChapters.push(chapterId);
             status = 'completed';
 
             // --- LEVEL UP CHECK ---
-            // 1. Get the list of ALL technique IDs for the current level
-            const currentLevelTechniques = course.syllabus.techniques.map(t => t.toString());
-            
-            // 2. Count how many of THESE are in the completed list 
-            const completedCount = currentLevelTechniques.filter(id => 
-                course.completedTechniques.map(String).includes(id)
+            // 1. Flatten all chapters in this level into one array of IDs
+            const allChapterIds = course.syllabus.techniques.reduce((acc, tech) => {
+                return acc.concat(tech.chapters.map(c => c._id.toString()));
+            }, []);
+
+            // 2. Count matches
+            const completedCount = allChapterIds.filter(id => 
+                course.completedChapters.map(String).includes(id)
             ).length;
 
-            // 3. If ALL are done, Promote!
-            if (completedCount === currentLevelTechniques.length) {
-                const currentLevelIndex = LEVEL_ORDER.indexOf(course.level);
-                
-                if (currentLevelIndex !== -1 && currentLevelIndex < LEVEL_ORDER.length - 1) {
-                    nextLevelName = LEVEL_ORDER[currentLevelIndex + 1];
-                    
-                    // A. Find the Syllabus for the Next Level
+            // 3. Promote if all done (and chapters exist)
+            if (allChapterIds.length > 0 && completedCount === allChapterIds.length) {
+                const currentIdx = LEVEL_ORDER.indexOf(course.level);
+                if (currentIdx !== -1 && currentIdx < LEVEL_ORDER.length - 1) {
+                    nextLevelName = LEVEL_ORDER[currentIdx + 1];
                     const nextSyllabus = await Syllabus.findOne({ level: nextLevelName });
-                    
                     if (nextSyllabus) {
-                        // B. Update the Course
                         course.level = nextLevelName;
                         course.syllabus = nextSyllabus._id;
                         leveledUp = true;
@@ -112,18 +147,13 @@ export const toggleTechniqueForCourse = async (req, res) => {
                 }
             }
         } else {
-            // MARK INCOMPLETE (Undo)
-            course.completedTechniques.splice(index, 1);
+            // UNDO
+            course.completedChapters.splice(index, 1);
             status = 'pending';
         }
 
         await course.save();
-
-        const message = leveledUp 
-            ? `Fantastic! Course promoted to ${nextLevelName}!` 
-            : "Progress updated";
-
-        res.status(200).json(new ApiResponse(200, { techniqueId, status, leveledUp, nextLevelName }, message));
+        res.status(200).json(new ApiResponse(200, { chapterId, status, leveledUp, nextLevelName }, "Progress updated"));
 
     } catch (error) {
         console.error("Toggle Error:", error);
@@ -131,22 +161,14 @@ export const toggleTechniqueForCourse = async (req, res) => {
     }
 };
 
-// ... (getAllSyllabus, getGlobalSyllabus remain the same)
+// ... (Get All/Global remain similar, just ensuring they populate properly)
 export const getAllSyllabus = async (req, res) => {
-    try {
-        const allSyllabi = await Syllabus.find().populate('techniques').sort({ level: 1 });
-        res.status(200).json(new ApiResponse(200, allSyllabi, "All fetched"));
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+    // ... same as before
+    const all = await Syllabus.find().populate('techniques').sort({ level: 1 });
+    res.status(200).json(new ApiResponse(200, all, "Fetched"));
 };
-
 export const getGlobalSyllabus = async (req, res) => {
-    try {
-        const { level } = req.params;
-        const syllabus = await Syllabus.findOne({ level }).populate('techniques');
-        res.status(200).json(new ApiResponse(200, syllabus || { techniques: [] }, "Global fetched"));
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+    // ... same as before
+    const s = await Syllabus.findOne({ level: req.params.level }).populate('techniques');
+    res.status(200).json(new ApiResponse(200, s || { techniques: [] }, "Fetched"));
 };
