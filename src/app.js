@@ -63,7 +63,7 @@ import testRouter from "./routes/test.route.js";
 import tournamentRoutes from './routes/tournament.route.js';
 import newclassRouter from './routes/new_class.route.js';
 import syllabusRouter from './routes/syllabus.route.js';
-
+import livekitRouter from './routes/livekit.route.js';
 
 // --- Mount Routers ---
 app.use("/api/v1/users", userRouter);
@@ -76,6 +76,7 @@ app.use("/api/v1/tests", testRouter);
 app.use('/api/v1/tournaments', tournamentRoutes);
 app.use('/api/v1/newclasses', newclassRouter);
 app.use('/api/v1/syllabus', syllabusRouter);
+app.use('/api/v1/livekit', livekitRouter);
 
 
 // --- Global Error Handler ---
