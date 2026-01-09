@@ -9,10 +9,24 @@ const app = express();
 app.use(helmet()); 
 
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per window
+    windowMs: 1 * 60 * 1000, // 1 minute (Recover faster if banned)
+    max: 1000, // Limit each IP to 1000 requests per minute (~16 reqs/sec)
     standardHeaders: true,
-    legacyHeaders: false, 
+    legacyHeaders: false,
+    
+    // --- THE CRITICAL FIXES ---
+    skip: (req) => {
+        // 1. Always allow CORS preflight checks
+        if (req.method === 'OPTIONS') return true;
+
+        // 2. Always allow Socket.io polling requests 
+        // (Socket.io sends many HTTP requests to establish connection)
+        if (req.url.startsWith('/socket.io/')) return true;
+
+        return false;
+    },
+    
+    message: "Too many requests, please try again later."
 });
 app.use(limiter); // Apply rate limiting to all requests
 // --- End of Security Middleware ---
