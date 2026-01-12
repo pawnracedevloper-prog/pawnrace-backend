@@ -27,7 +27,7 @@ router.get('/token', verifyJWT, async (req, res) => {
             }
         );
 
-        // 3. Grant Permissions (Join, Publish Camera, Subscribe to others)
+        // 3.Grant Permissions (Join, Publish Camera, Subscribe to others)
         at.addGrant({ 
             roomJoin: true, 
             room: roomId,
@@ -35,7 +35,7 @@ router.get('/token', verifyJWT, async (req, res) => {
             canSubscribe: true 
         });
 
-        // 4. Generate JWT
+        // 4.Generate JWT 
         const token = await at.toJwt();
 
         res.status(200).json({ token });
