@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { 
     createAssignment,
     deleteAssignment,
-    getAssignmentsForCourse
+    getAssignmentsForCourse,
+    getAssignmentById
 } from '../controllers/assignment.controller.js';
 import { verifyJWT, verifyRole } from '../middlewares/auth.middleware.js';
 
@@ -14,6 +15,7 @@ router.route('/course/:courseId')
 
 // Coach: Delete
 router.route('/:assignmentId')
+    .get(verifyJWT, getAssignmentById)
     .delete(verifyJWT, verifyRole('coach'), deleteAssignment);
 
 // Shared: Get List (Student gets progress, Coach gets list)

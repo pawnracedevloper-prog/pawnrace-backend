@@ -77,3 +77,26 @@ export const getAssignmentsForCourse = asyncHandler(async (req, res) => {
 
     return res.status(200).json(new ApiResponse(200, result, "Assignments retrieved with progress."));
 });
+
+export const getAssignmentById = asyncHandler(async (req, res) => {
+    const { assignmentId } = req.params;
+    const userId = req.user._id;
+
+    const assignment = await Assignment.findById(assignmentId);
+    if (!assignment) {
+        throw new ApiError(404, "Assignment not found.");
+    }
+
+    // Attach the student's submission (progress) if it exists
+    const submission = await Submission.findOne({ 
+        assignment: assignmentId, 
+        student: userId 
+    });
+
+    const result = {
+        ...assignment.toObject(),
+        mySubmission: submission || null
+    };
+
+    return res.status(200).json(new ApiResponse(200, result, "Assignment retrieved successfully."));
+});
