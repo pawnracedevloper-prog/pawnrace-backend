@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-    createSubmission,
+    solveTask,
     reviewSubmission,
     getSubmissionsForAssignment
 } from '../controllers/submission.controller.js';
@@ -8,8 +8,13 @@ import { verifyJWT, verifyRole } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-router.route("/assignment/:assignmentId").post(verifyJWT, verifyRole('student'), createSubmission);
-router.route("/assignment/:assignmentId").get(verifyJWT, getSubmissionsForAssignment);
+// Student: Mark a specific puzzle as solved
+router.route("/:assignmentId/solve").post(verifyJWT, verifyRole('student'), solveTask);
+
+// Coach: Get all student submissions for an assignment
+router.route("/:assignmentId/all").get(verifyJWT, verifyRole('coach'), getSubmissionsForAssignment);
+
+// Coach: Give Review/Feedback
 router.route("/:submissionId/review").patch(verifyJWT, verifyRole('coach'), reviewSubmission);
 
 export default router;

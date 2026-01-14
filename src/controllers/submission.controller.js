@@ -1,52 +1,54 @@
 import { Submission } from "../models/submission.model.js";
 import { Assignment } from "../models/assignment.model.js";
-import { Course } from "../models/course.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 
-const createSubmission = asyncHandler(async (req, res) => {
+// --- STUDENT: Mark a specific task as Solved ---
+// Frontend calls this when the board logic confirms the move was correct
+export const solveTask = asyncHandler(async (req, res) => {
     const { assignmentId } = req.params;
-    const { submittedContent } = req.body;
+    const { chapterId } = req.body; // The ID of the puzzle solved
     const studentId = req.user._id;
 
-    if (!submittedContent) {
-        throw new ApiError(400, "Submission content is required");
-    }
-
     const assignment = await Assignment.findById(assignmentId);
-    if (!assignment) {
-        throw new ApiError(404, "Assignment not found");
+    if (!assignment) throw new ApiError(404, "Assignment not found");
+
+    // Find or Create Submission
+    let submission = await Submission.findOne({ assignment: assignmentId, student: studentId });
+    
+    if (!submission) {
+        submission = await Submission.create({
+            assignment: assignmentId,
+            student: studentId,
+            status: 'pending',
+            solvedTaskIds: []
+        });
     }
 
-    // Check if the student is enrolled in the course for this assignment
-    const course = await Course.findById(assignment.course);
-    if (!course.students.includes(studentId)) {
-        throw new ApiError(403, "You are not enrolled in the course for this assignment");
+    // Add task to solved list if unique
+    if (!submission.solvedTaskIds.includes(chapterId)) {
+        submission.solvedTaskIds.push(chapterId);
+        
+        // Auto-update status to 'submitted' if all tasks are done?
+        // Optional logic:
+        if (submission.solvedTaskIds.length === assignment.tasks.length) {
+             submission.status = 'submitted';
+        }
+        
+        await submission.save();
     }
 
-    // Check if the student has already submitted for this assignment
-    const existingSubmission = await Submission.findOne({ assignment: assignmentId, student: studentId });
-    if (existingSubmission) {
-        throw new ApiError(409, "You have already submitted this assignment");
-    }
-
-    const submission = await Submission.create({
-        assignment: assignmentId,
-        student: studentId,
-        submittedContent
-    });
-
-    return res.status(201).json(new ApiResponse(201, submission, "Assignment submitted successfully"));
+    return res.status(200).json(new ApiResponse(200, submission, "Progress saved"));
 });
 
-//coach reviews a submission
-const reviewSubmission = asyncHandler(async (req, res) => {
+// --- COACH: Review Submission (Feedback + Pass/Fail) ---
+export const reviewSubmission = asyncHandler(async (req, res) => {
     const { submissionId } = req.params;
     const { status, feedback } = req.body;
 
     if (!status || !['pass', 'fail'].includes(status)) {
-        throw new ApiError(400, "A valid status ('pass' or 'fail') is required");
+        throw new ApiError(400, "Valid status ('pass' or 'fail') is required");
     }
 
     const submission = await Submission.findById(submissionId).populate({
@@ -54,40 +56,36 @@ const reviewSubmission = asyncHandler(async (req, res) => {
         populate: { path: 'course' }
     });
 
-    if (!submission) {
-        throw new ApiError(404, "Submission not found");
-    }
+    if (!submission) throw new ApiError(404, "Submission not found");
 
-    // Verify the logged-in user is the coach of the course
+    // Auth check
     if (submission.assignment.course.coach.toString() !== req.user._id.toString()) {
-        throw new ApiError(403, "You are not authorized to review this submission");
+        throw new ApiError(403, "Unauthorized");
     }
 
     submission.status = status;
-    submission.feedback = feedback || ""; 
+    submission.feedback = feedback || "";
     await submission.save();
 
-    return res.status(200).json(new ApiResponse(200, submission, "Submission reviewed successfully"));
+    return res.status(200).json(new ApiResponse(200, submission, "Review submitted"));
 });
 
-const getSubmissionsForAssignment = asyncHandler(async (req, res) => {
+// --- COACH: View all submissions for an assignment ---
+export const getSubmissionsForAssignment = asyncHandler(async (req, res) => {
     const { assignmentId } = req.params;
-    const user = req.user;
+    
+    // We get the assignment to check task count
+    const assignment = await Assignment.findById(assignmentId);
 
-    const query = { assignment: assignmentId };
+    const submissions = await Submission.find({ assignment: assignmentId })
+        .populate('student', 'username fullname email')
+        .sort({ updatedAt: -1 });
 
-    // If the user is a student, they can only see their own submission
-    if (user.role === 'student') {
-        query.student = user._id;
-    }
+    // Helper: Calculate progress % for the frontend
+    const result = submissions.map(sub => ({
+        ...sub.toObject(),
+        progress: `${sub.solvedTaskIds.length} / ${assignment.tasks.length}`
+    }));
 
-    const submissions = await Submission.find(query).populate('student', 'username fullname');
-
-    return res.status(200).json(new ApiResponse(200, submissions, "Submissions retrieved successfully"));
+    return res.status(200).json(new ApiResponse(200, result, "Submissions retrieved"));
 });
-
-export {
-    createSubmission,
-    reviewSubmission,
-    getSubmissionsForAssignment
-};
