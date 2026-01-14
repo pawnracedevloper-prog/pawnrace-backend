@@ -10,9 +10,15 @@ const classSchema = new Schema({
         type: Date,
         required: true,
     },
-    zoomLink: {
+    // New Mandatory Field for your Internal Game Room
+    roomId: {
         type: String,
         required: true,
+        unique: true // Ensures no two classes accidentally share a room
+    },
+    platform: {
+        type: String,
+        default: 'internal', // Hardcoded since you are only using your own platform now
     },
     course: {
         type: Schema.Types.ObjectId,
@@ -21,9 +27,9 @@ const classSchema = new Schema({
     },
     status: {
         type: String,
-        enum: ['scheduled', 'completed', 'archived'],
+        enum: ['scheduled', 'completed', 'cancelled'],
         default: 'scheduled'
     }
 }, { timestamps: true });
 
-export const Class = model('Class', classSchema);
+export const Training = model('Training', classSchema);

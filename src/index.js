@@ -12,7 +12,7 @@ import './models/technique.model.js';
 import './models/syllabus.model.js';
 import './models/assignment.model.js';
 import './models/submission.model.js';
-import './models/class.model.js';
+import './models/training-session.model.js';
 import './models/message.model.js';
 import './models/test.model.js';
 import './models/tournament.model.js';
