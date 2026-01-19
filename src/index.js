@@ -6,9 +6,7 @@ import connectDB from "./db/index.js";
 import app from "./app.js";
 import initSocket from "./sockets/chat.socket.js";
 
-/* =========================================================
-   IMPORT MODELS (ONCE)
-   ========================================================= */
+
 import "./models/user.model.js";
 import "./models/course.model.js";
 import "./models/technique.model.js";
@@ -21,9 +19,6 @@ import "./models/test.model.js";
 import "./models/tournament.model.js";
 import "./models/new_class.model.js";
 
-/* =========================================================
-   SERVER BOOTSTRAP
-   ========================================================= */
 connectDB()
     .then(() => {
         const server = http.createServer(app);

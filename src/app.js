@@ -28,9 +28,6 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
-/* =========================================================
-   CORS CONFIG (COOKIE-SAFE)
-   ========================================================= */
 const allowedOrigins = (process.env.CORS_ORIGIN || "")
     .split(",")
     .map(origin => origin.trim())
@@ -55,17 +52,11 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-/* =========================================================
-   BODY & COOKIE PARSERS
-   ========================================================= */
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
-/* =========================================================
-   ROUTES
-   ========================================================= */
 import userRouter from "./routes/user.route.js";
 import courseRouter from "./routes/course.route.js";
 import assignmentRouter from "./routes/assignment.route.js";
@@ -90,9 +81,6 @@ app.use("/api/v1/newclasses", newclassRouter);
 app.use("/api/v1/syllabus", syllabusRouter);
 app.use("/api/v1/livekit", livekitRouter);
 
-/* =========================================================
-   GLOBAL ERROR HANDLER
-   ========================================================= */
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500;
     const message = err.message || "Internal Server Error";
