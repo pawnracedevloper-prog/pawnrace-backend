@@ -6,14 +6,11 @@ import rateLimit from "express-rate-limit";
 
 const app = express();
 
-/* =========================================================
-   SECURITY MIDDLEWARE
-   ========================================================= */
 app.use(helmet());
 
 const limiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minute
-    max: 1000,              // 1000 requests/min
+    windowMs: 1 * 60 * 1000, 
+    max: 1000,              
     standardHeaders: true,
     legacyHeaders: false,
 
@@ -37,7 +34,6 @@ console.log("Allowed CORS Origins:", allowedOrigins);
 
 const corsOptions = {
     origin: (origin, callback) => {
-        // allow server-to-server / postman / mobile apps
         if (!origin) return callback(null, true);
 
         if (allowedOrigins.includes(origin)) {
