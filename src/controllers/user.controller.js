@@ -6,13 +6,17 @@ import jwt from 'jsonwebtoken';
 import crypto from "crypto";
 import sendEmail from "../utils/sendEmail.js";
 
-// --- 1. GLOBAL COOKIE CONFIGURATION (Critical Fix) ---
+/* ================= COOKIE CONFIG (CRITICAL FIX) ================= */
+// 🔽 CHANGED: env-aware cookie config
+const isProd = process.env.NODE_ENV === "production";
+
 const COOKIE_OPTIONS = {
     httpOnly: true,
-    secure: true, // Must be true for SameSite=None
-    sameSite: 'None', // Required for Vercel (Frontend) -> Railway (Backend)
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 Days (Keeps user logged in after closing browser)
+    secure: isProd,
+    sameSite: isProd ? "None" : "Lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000
 };
+/* ================================================================= */
 
 const generaterefreshandaccesstoken = async (userId) => {
     try {
@@ -73,7 +77,7 @@ const userlogin = asyncHandler(async (req, res) => {
     const LoggedInUser = await User.findById(user._id).select("-password -refreshToken");
 
     return res.status(200)
-        .cookie("refreshToken", refreshToken, COOKIE_OPTIONS) // <--- Applying Fix
+        .cookie("refreshToken", refreshToken, COOKIE_OPTIONS)
         .cookie("accessToken", accessToken, COOKIE_OPTIONS)
         .json(
             new ApiResponse(200, {
@@ -92,7 +96,7 @@ const userlogout = asyncHandler(async (req, res) => {
     );
 
     return res.status(200)
-        .clearCookie("refreshToken", COOKIE_OPTIONS) // <--- Applying Fix (Options must match to clear)
+        .clearCookie("refreshToken", COOKIE_OPTIONS)
         .clearCookie("accessToken", COOKIE_OPTIONS)
         .json({ message: "User logged out successfully" });
 });

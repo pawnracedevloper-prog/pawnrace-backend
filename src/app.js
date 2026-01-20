@@ -9,62 +9,37 @@ const app = express();
 app.use(helmet()); 
 
 const limiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minute (Recover faster if banned)
-    max: 1000, // Limit each IP to 1000 requests per minute (~16 reqs/sec)
+    windowMs: 1 * 60 * 1000,
+    max: 1000,
     standardHeaders: true,
     legacyHeaders: false,
-    
-    // --- THE CRITICAL FIXES ---
+
     skip: (req) => {
-        // 1. Always allow CORS preflight checks
         if (req.method === 'OPTIONS') return true;
-
-        // 2. Always allow Socket.io polling requests 
-        // (Socket.io sends many HTTP requests to establish connection)
         if (req.url.startsWith('/socket.io/')) return true;
-
         return false;
     },
-    
+
     message: "Too many requests, please try again later."
 });
-app.use(limiter); // Apply rate limiting to all requests
-// --- End of Security Middleware ---
+app.use(limiter);
 
-
-// --- START OF DIAGNOSTIC CORS CONFIGURATION ---
-
-// 1. Log the raw environment variable to see what Render is providing.
-console.log("Reading CORS_ORIGIN from environment:", process.env.CORS_ORIGIN);
-
-// 2. Safely parse the environment variable into an array.
-//    The `|| ''` prevents a crash if the variable is missing.
-const allowedOrigins = (process.env.CORS_ORIGIN || '').split(',').map(origin => origin.trim());
-
-// 3. Log the final array that will be used for the CORS check.
-console.log("Server configured with Allowed CORS Origins:", allowedOrigins);
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    // This logic is correct. It will check if the incoming `origin` is in our `allowedOrigins` array.
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.error(`CORS Blocked: Origin '${origin}' is not in the allowed list.`);
-      callback(new Error('This origin is not allowed by CORS'));
-    }
-  },
-  credentials: true // Crucial for cookies
-};
-
-// 4. IMPORTANT: Ensure this line is placed BEFORE your API routes (app.use('/api/v1/...')).
-app.use(cors(corsOptions));
+/* ===================== CORS (ONLY REAL FIX HERE) ===================== */
+// 🔽 CHANGED: static origins instead of dynamic function
+app.use(cors({
+    origin: [
+        "https://pawnrace.com",
+        "https://www.pawnrace.com",
+        "http://localhost:5173"
+    ],
+    credentials: true
+}));
+/* ==================================================================== */
 
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
-
 
 // --- Import Routers ---
 import userRouter from "./routes/user.route.js";
@@ -92,12 +67,11 @@ app.use('/api/v1/newclasses', newclassRouter);
 app.use('/api/v1/syllabus', syllabusRouter);
 app.use('/api/v1/livekit', livekitRouter);
 
-
 // --- Global Error Handler ---
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-    
+
     return res.status(statusCode).json({
         success: false,
         message: message,

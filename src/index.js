@@ -18,18 +18,17 @@ import './models/test.model.js';
 import './models/tournament.model.js';
 import './models/new_class.model.js';
 
-
 connectDB()
 .then(() => {
-    // Create HTTP server from Express app
     const server = http.createServer(app);
 
-    // Allowed frontend origins (Railway + local)
-    const allowedOrigins = process.env.CORS_ORIGIN
-        ? process.env.CORS_ORIGIN.split(',')
-        : ["http://localhost:8080"];
+    // 🔽 CHANGED: use explicit, stable origins (instead of env-split here)
+    const allowedOrigins = [
+        "https://pawnrace.com",
+        "https://www.pawnrace.com",
+        "http://localhost:5173"
+    ];
 
-    // Attach Socket.IO to the same HTTP server
     const io = new Server(server, {
         cors: {
             origin: allowedOrigins,
@@ -38,10 +37,8 @@ connectDB()
         }
     });
 
-    // Initialize socket logic
     initSocket(io);
 
-    // Start server
     server.listen(process.env.PORT || 8000, () => {
         console.log(`🚀 API & Chat Server running on port ${process.env.PORT || 8000}`);
     });
