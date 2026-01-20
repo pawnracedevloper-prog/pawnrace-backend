@@ -30,7 +30,8 @@ app.use(cors({
     origin: [
         "https://pawnrace.com",
         "https://www.pawnrace.com",
-        "http://localhost:5173"
+        "http://localhost:5173",
+        "https://pawnrace-launchpad.vercel.app"
     ],
     credentials: true
 }));
