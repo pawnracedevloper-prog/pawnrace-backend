@@ -24,8 +24,6 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-/* ===================== CORS (ONLY REAL FIX HERE) ===================== */
-// 🔽 CHANGED: static origins instead of dynamic function
 app.use(cors({
     origin: [
         "https://pawnrace.com",
@@ -35,14 +33,13 @@ app.use(cors({
     ],
     credentials: true
 }));
-/* ==================================================================== */
 
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
-// --- Import Routers ---
+
 import userRouter from "./routes/user.route.js";
 import courseRouter from "./routes/course.route.js";
 import assignmentRouter from "./routes/assignment.route.js";
@@ -55,7 +52,6 @@ import newclassRouter from './routes/new_class.route.js';
 import syllabusRouter from './routes/syllabus.route.js';
 import livekitRouter from './routes/livekit.route.js';
 
-// --- Mount Routers ---
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/courses", courseRouter);
 app.use("/api/v1/assignments", assignmentRouter);
@@ -68,7 +64,7 @@ app.use('/api/v1/newclasses', newclassRouter);
 app.use('/api/v1/syllabus', syllabusRouter);
 app.use('/api/v1/livekit', livekitRouter);
 
-// --- Global Error Handler ---
+
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500;
     const message = err.message || "Internal Server Error";
