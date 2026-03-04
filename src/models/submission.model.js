@@ -12,18 +12,20 @@ const submissionSchema = new Schema({
         ref: 'User',
         required: true,
     },
-    // REPLACED submittedContent with tracking array
-    solvedTaskIds: [{ 
-        type: String // Stores the chapterIds the student has solved
+    // [UPDATED] Upgraded from simple string array to object array
+    solvedTasks: [{ 
+        taskId: { type: String, required: true }, // The chapterId/taskId
+        isCorrect: { type: Boolean, default: true }, // Did they play the book move?
+        overridePgn: { type: String, default: null } // The custom line if isCorrect is false
     }],
     
     status: {
         type: String,
         enum: ['pending', 'submitted', 'pass', 'fail'],
-        default: 'pending', // 'submitted' can mean they finished all tasks
+        default: 'pending', 
     },
     feedback: {
-        type: String, // The review box for the entire assignment
+        type: String, 
         default: ""
     },
 }, { timestamps: true });

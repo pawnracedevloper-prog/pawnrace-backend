@@ -5,10 +5,10 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 
 // --- STUDENT: Mark a specific task as Solved ---
-// Frontend calls this when the board logic confirms the move was correct
 export const solveTask = asyncHandler(async (req, res) => {
     const { assignmentId } = req.params;
-    const { chapterId } = req.body; // The ID of the puzzle solved
+    // [UPDATED] Now accepting the off-script parameters
+    const { chapterId, isCorrect = true, overridePgn = null } = req.body; 
     const studentId = req.user._id;
 
     const assignment = await Assignment.findById(assignmentId);
@@ -22,21 +22,32 @@ export const solveTask = asyncHandler(async (req, res) => {
             assignment: assignmentId,
             student: studentId,
             status: 'pending',
-            solvedTaskIds: []
+            solvedTasks: [] // [UPDATED] Using the new array name
         });
     }
 
-    // Add task to solved list if unique
-    if (!submission.solvedTaskIds.includes(chapterId)) {
-        submission.solvedTaskIds.push(chapterId);
+    // [UPDATED] Check if task is already solved using the new object structure
+    const taskIndex = submission.solvedTasks.findIndex(t => t.taskId === chapterId);
+
+    if (taskIndex === -1) {
+        // Task is new, push the full object
+        submission.solvedTasks.push({
+            taskId: chapterId,
+            isCorrect: isCorrect,
+            overridePgn: overridePgn
+        });
         
-        // Auto-update status to 'submitted' if all tasks are done?
-        // Optional logic:
-        if (submission.solvedTaskIds.length === assignment.tasks.length) {
+        // Auto-update status to 'submitted' if all tasks are done
+        if (submission.solvedTasks.length === assignment.tasks.length) {
              submission.status = 'submitted';
         }
         
         await submission.save();
+    } else {
+        // Optional: If they replay it and want to overwrite their previous attempt
+        // submission.solvedTasks[taskIndex].isCorrect = isCorrect;
+        // submission.solvedTasks[taskIndex].overridePgn = overridePgn;
+        // await submission.save();
     }
 
     return res.status(200).json(new ApiResponse(200, submission, "Progress saved"));
@@ -74,18 +85,34 @@ export const reviewSubmission = asyncHandler(async (req, res) => {
 export const getSubmissionsForAssignment = asyncHandler(async (req, res) => {
     const { assignmentId } = req.params;
     
-    // We get the assignment to check task count
     const assignment = await Assignment.findById(assignmentId);
 
     const submissions = await Submission.find({ assignment: assignmentId })
         .populate('student', 'username fullname email')
         .sort({ updatedAt: -1 });
 
-    // Helper: Calculate progress % for the frontend
+    // [UPDATED] Calculate progress using the new solvedTasks array
     const result = submissions.map(sub => ({
         ...sub.toObject(),
-        progress: `${sub.solvedTaskIds.length} / ${assignment.tasks.length}`
+        progress: `${sub.solvedTasks?.length || 0} / ${assignment.tasks.length}`
     }));
 
     return res.status(200).json(new ApiResponse(200, result, "Submissions retrieved"));
+});
+
+// --- STUDENT: Finalize and Submit Assignment ---
+export const submitAssignment = asyncHandler(async (req, res) => {
+    const { assignmentId } = req.params;
+    const studentId = req.user._id;
+
+    const submission = await Submission.findOne({ assignment: assignmentId, student: studentId });
+    
+    if (!submission) {
+        throw new ApiError(404, "Submission not found. You must solve at least one task first.");
+    }
+
+    submission.status = 'submitted';
+    await submission.save();
+
+    return res.status(200).json(new ApiResponse(200, submission, "Assignment successfully submitted to coach."));
 });

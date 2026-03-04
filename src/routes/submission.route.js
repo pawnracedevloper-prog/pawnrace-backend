@@ -2,7 +2,8 @@ import { Router } from 'express';
 import {
     solveTask,
     reviewSubmission,
-    getSubmissionsForAssignment
+    getSubmissionsForAssignment,
+    submitAssignment // <-- 1. ADD THIS IMPORT
 } from '../controllers/submission.controller.js';
 import { verifyJWT, verifyRole } from '../middlewares/auth.middleware.js';
 
@@ -10,6 +11,10 @@ const router = Router();
 
 // Student: Mark a specific puzzle as solved
 router.route("/:assignmentId/solve").post(verifyJWT, verifyRole('student'), solveTask);
+
+// Student: Final Submit (Flips status to 'submitted')
+// <-- 2. ADD THIS ROUTE -->
+router.route("/:assignmentId/submit").patch(verifyJWT, verifyRole('student'), submitAssignment);
 
 // Coach: Get all student submissions for an assignment
 router.route("/:assignmentId/all").get(verifyJWT, verifyRole('coach'), getSubmissionsForAssignment);
