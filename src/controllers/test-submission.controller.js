@@ -17,8 +17,7 @@ const handleAutoSubmitIfExpired = async (attempt, test) => {
         attempt.status = 'timeout';
         // Retroactively set completion time to the exact moment the timer hit zero
         attempt.completedAt = new Date(attempt.startTime.getTime() + (test.timeLimit * 1000));
-        
-        const correctCount = attempt.solvedTasks.filter(t => t.isCorrect).length;
+        const correctCount = (attempt.solvedTasks || []).filter(t => t.isCorrect).length;        
         const totalTasks = test.tasks.length;
         const earnedPoints = totalTasks > 0 ? Math.round((correctCount / totalTasks) * test.rewardPoints) : 0;
         
@@ -120,7 +119,7 @@ export const submitTest = asyncHandler(async (req, res) => {
     }
 
     // Normal submission (within time limit)
-    const correctCount = attempt.solvedTasks.filter(t => t.isCorrect).length;
+    const correctCount = (attempt.solvedTasks || []).filter(t => t.isCorrect).length;
     const totalTasks = test.tasks.length;
     
     let earnedPoints = 0;
