@@ -31,6 +31,11 @@ const assignmentSchema = new Schema({
     },
     // REPLACED assignmentLink with tasks array
     tasks: [taskSchema], 
+    // Add this field to your Assignment schema
+rewardPoints: { 
+    type: Number, 
+    default: 50 
+},
     
     // Status of the assignment itself (e.g., is it active?)
     status: {

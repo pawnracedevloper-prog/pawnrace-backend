@@ -28,6 +28,10 @@ const submissionSchema = new Schema({
         type: String, 
         default: ""
     },
+    pointsAwarded: { 
+    type: Boolean, 
+    default: false 
+},
 }, { timestamps: true });
 
 export const Submission = model('Submission', submissionSchema);

@@ -3,7 +3,7 @@ import { Assignment } from "../models/assignment.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
-
+import { User } from "../models/user.model.js"; 
 // --- STUDENT: Mark a specific task as Solved ---
 export const solveTask = asyncHandler(async (req, res) => {
     const { assignmentId } = req.params;
@@ -76,6 +76,12 @@ export const reviewSubmission = asyncHandler(async (req, res) => {
 
     submission.status = status;
     submission.feedback = feedback || "";
+    if (status === 'pass' && !submission.pointsAwarded && submission.assignment?.rewardPoints > 0) {
+        await User.findByIdAndUpdate(submission.student, { 
+            $inc: { totalPoints: submission.assignment.rewardPoints } 
+        });
+        submission.pointsAwarded = true;
+    }
     await submission.save();
 
     return res.status(200).json(new ApiResponse(200, submission, "Review submitted"));
