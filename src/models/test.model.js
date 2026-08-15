@@ -1,39 +1,54 @@
 import mongoose from 'mongoose';
 const { Schema, model } = mongoose;
 
+// Sub-schema for individual puzzles/techniques in the test
+const testTaskSchema = new Schema({
+    chapterId: { type: String, required: true }, // Reference to Syllabus Chapter ID
+    title: { type: String, required: true },
+    pgn: { type: String, required: true },       // Stored snapshot for validation
+    fen: { type: String }                        // Optional: Board setup
+});
+
 const testSchema = new Schema({
-    // The coach who assigned the test
-    coach: {
-        type: Schema.Types.ObjectId,
-        ref: 'User',
-        required: true,
-    },
     course: {
         type: Schema.Types.ObjectId,
         ref: 'Course',
         required: true,
     },
-    testName: {
+    coach: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+    },
+    title: {
         type: String,
         required: true,
         trim: true,
     },
-    // The Zoom link for the test session
-    zoomLink: {
+    description: {
         type: String,
-        required: true,
-        trim: true,
+        trim: true
     },
-    // A status field to track the test's progress
+    tasks: [testTaskSchema], 
+    
+    // NEW: Independent timer for this specific test
+    timeLimit: {
+        type: Number, 
+        required: true,
+        // E.g., store in seconds (1800 = 30 minutes) for easy frontend countdowns
+    },
+    
+    // NEW: Points rewarded to the student for completion
+    rewardPoints: {
+        type: Number,
+        required: true,
+        default: 0
+    },
+
     status: {
         type: String,
-        enum: ['assigned', 'completed', 'graded'],
-        default: 'assigned',
-    },
-    // Optional field for storing the result/grade later
-    result: {
-        type: String,
-        trim: true,
+        enum: ['draft', 'published', 'archived'],
+        default: 'published',
     }
 }, { timestamps: true });
 

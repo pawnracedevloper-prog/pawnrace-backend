@@ -2,27 +2,23 @@ import { Router } from 'express';
 import { 
     createTest,
     deleteTest,
-    getAllTestsForCourse
+    getTestsForCourse,
+    getTestById
 } from '../controllers/test.controller.js';
 import { verifyJWT, verifyRole } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-// --- Coach Routes ---
-
-// A coach creates a test for a specific course
+// Coach: Create (Body: title, description, tasks[], timeLimit, rewardPoints)
+// Shared: Get List (Student gets progress, Coach gets list)
 router.route('/course/:courseId')
-    .post(verifyJWT, verifyRole('coach'), createTest);
+    .post(verifyJWT, verifyRole('coach'), createTest)
+    .get(verifyJWT, getTestsForCourse);
 
-// A coach deletes a specific test
+// Shared: Get Single Test
+// Coach: Delete
 router.route('/:testId')
+    .get(verifyJWT, getTestById)
     .delete(verifyJWT, verifyRole('coach'), deleteTest);
 
-// --- Shared Route (Accessible by both Coach & Enrolled Students) ---
-
-// Get all tests for a specific course
-router.route('/course/:courseId')
-    .get(verifyJWT, getAllTestsForCourse);
-
 export default router;
-

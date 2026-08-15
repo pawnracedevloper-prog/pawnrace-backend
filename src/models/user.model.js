@@ -42,6 +42,10 @@ const userSchema = new Schema({
         trim: true,
         match: [/^\+\d{1,3}\d{6,14}$/, "Please enter a valid phone number with country code"]
     },
+    totalPoints: {
+        type: Number,
+        default: 0
+    },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
 }, { timestamps: true });

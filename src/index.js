@@ -17,6 +17,8 @@ import './models/message.model.js';
 import './models/test.model.js';
 import './models/tournament.model.js';
 import './models/new_class.model.js';
+import './models/test.submission.js';
+
 
 connectDB()
 .then(() => {
