@@ -215,6 +215,32 @@ const updateProfile = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, updatedUser, "Profile updated"));
 });
 
+const getLeaderboard = asyncHandler(async (req, res) => {
+    // 1. Fetch the top 10 users, sorted by points (highest to lowest)
+    // Adjust the query if you need to filter by role: { role: 'student' }
+    const topStudents = await User.find({ totalPoints: { $gt: 0 } }) 
+        .sort({ totalPoints: -1 })
+        .limit(10)
+        .select('username fullname profilePicture totalPoints');
+
+    // 2. Get the current user's fresh data from the DB
+    const currentUser = await User.findById(req.user._id);
+    const myPoints = currentUser.totalPoints || 0;
+
+    // 3. Calculate the current user's global rank
+    const myRank = await User.countDocuments({ totalPoints: { $gt: myPoints } }) + 1;
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            leaderboard: topStudents,
+            myStats: {
+                totalPoints: myPoints,
+                rank: myRank
+            }
+        }, "Leaderboard fetched successfully")
+    );
+});
+
 export { 
     registerUser, 
     userlogin, 
@@ -223,5 +249,6 @@ export {
     changePassword, 
     forgotPassword, 
     resetPassword, 
-    updateProfile 
+    updateProfile,
+    getLeaderboard
 };
