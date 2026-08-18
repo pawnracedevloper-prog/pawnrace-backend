@@ -52,6 +52,8 @@ import newclassRouter from './routes/new_class.route.js';
 import syllabusRouter from './routes/syllabus.route.js';
 import livekitRouter from './routes/livekit.route.js';
 import testSubmissionRouter from './routes/test-submission.route.js';
+import iqPuzzleRouter from './routes/iq_puzzle.route.js';
+
 
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/courses", courseRouter);
@@ -65,7 +67,7 @@ app.use('/api/v1/newclasses', newclassRouter);
 app.use('/api/v1/syllabus', syllabusRouter);
 app.use('/api/v1/livekit', livekitRouter);
 app.use('/api/v1/test-submissions', testSubmissionRouter);
-    
+app.use("/api/v1/iq-puzzles", iqPuzzleRouter);
 // Error Handler
 
 
