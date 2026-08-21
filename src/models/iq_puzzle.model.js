@@ -9,8 +9,7 @@ const iqPuzzleSchema = new Schema({
     },
     mode: { 
         type: String, 
-        enum: ['vision', 'minefield', 'memory', 'detective'], 
-        required: true 
+        enum: ['vision', 'minefield', 'memory', 'detective', 'queens', 'tour'] 
     },
     difficulty: { 
         type: String, 
