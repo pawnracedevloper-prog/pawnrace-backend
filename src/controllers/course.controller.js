@@ -157,23 +157,19 @@ const removeStudentFromCourse = asyncHandler(async (req, res) => {
 // ==========================================
 
 const getMyCoursesAsCoach = asyncHandler(async (req, res) => {
-  const courses = await Course.find({ coach: req.user._id })
-    .populate("students", "username fullname email")
-    .populate({
-      path: "syllabus",
-      select: "title level description techniques",
-      populate: {
-        path: "techniques",
-        select: "name lichessUrl description category",
-      },
-    })
-    .lean();
-
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(200, courses, "Coach's courses retrieved successfully")
-    );
+    const courses = await Course.find({ coach: req.user._id })
+        .populate("students", "username fullname email")
+        .populate({
+            path: "syllabus",
+            select: "level title", // Add select here
+            populate: {
+                path: "techniques",
+                select: "name description" // EXCLUDE chapters and PGNs here
+            }
+        })
+        .lean();
+        
+    return res.status(200).json(new ApiResponse(200, courses, "Fetched"));
 });
 
 const getAllSyllabi = asyncHandler(async (req, res) => {
