@@ -1,8 +1,19 @@
 import { IqPuzzleRecord } from "../models/iq_puzzle.model.js";
 import { User } from "../models/user.model.js";
 import ApiError from "../utils/ApiError.js";
-import  ApiResponse  from "../utils/ApiResponse.js";
-import  asyncHandler  from "../utils/asyncHandler.js";
+import ApiResponse from "../utils/ApiResponse.js";
+import asyncHandler from "../utils/asyncHandler.js";
+
+// --- DYNAMIC RATING CALCULATOR ---
+export const calculateNewRating = (playerRating, puzzleRating, isCorrect) => {
+    const K = 32; // Volatility multiplier (max rating change per puzzle)
+    const expectedScore = 1 / (1 + Math.pow(10, (puzzleRating - playerRating) / 400));
+    const actualScore = isCorrect ? 1 : 0;
+    
+    // Calculate new rating and round to nearest whole number
+    const newRating = playerRating + K * (actualScore - expectedScore);
+    return Math.round(newRating);
+};
 
 // --- SUBMIT SCORE & AWARD POINTS ---
 export const submitIqScore = asyncHandler(async (req, res) => {
@@ -22,17 +33,36 @@ export const submitIqScore = asyncHandler(async (req, res) => {
         timeSpent
     });
 
-    // 2. Calculate Global Points (Gamification hook)
+    // 2. Determine Puzzle Rating based on difficulty
+    const difficultyRatings = { easy: 1000, medium: 1300, hard: 1600 };
+    const puzzleRating = difficultyRatings[difficulty] || 1200;
+
+    // 3. Fetch User's current rating
+    const user = await User.findById(studentId).select("stats");
+    const currentRating = user.stats?.rating || 1200;
+
+    // 4. Calculate new Rating and Shop Points
+    // Assuming a score > 0 is considered a "success" for Elo calculation purposes
+    const isCorrect = score > 0; 
+    const newRating = calculateNewRating(currentRating, puzzleRating, isCorrect);
+    
     const multiplier = difficulty === 'hard' ? 3 : difficulty === 'medium' ? 2 : 1;
     const pointsEarned = score * multiplier;
 
+    // 5. Update everything in ONE database sweep
+    const updateQuery = {
+        $set: { "stats.rating": newRating },
+        $push: { [`completions.iqPuzzles.${difficulty}`]: record._id }
+    };
+    
+    // Only increment shop points if they actually earned any
     if (pointsEarned > 0) {
-        await User.findByIdAndUpdate(studentId, {
-            $inc: { totalPoints: pointsEarned }
-        });
+        updateQuery.$inc = { "stats.shopPoints": pointsEarned };
     }
 
-    // 3. Check for a new personal high score
+    await User.findByIdAndUpdate(studentId, updateQuery);
+
+    // 6. Check for a new personal high score
     const bestRecord = await IqPuzzleRecord.findOne({ student: studentId, mode, difficulty })
         .sort({ score: -1 })
         .select('score');
@@ -43,6 +73,8 @@ export const submitIqScore = asyncHandler(async (req, res) => {
         new ApiResponse(200, {
             record,
             pointsEarned,
+            newRating,             // Passing this back so frontend can animate rating changes!
+            ratingChange: newRating - currentRating,
             isNewHighScore,
             highScore: bestRecord ? bestRecord.score : score
         }, "IQ score submitted successfully")

@@ -218,23 +218,23 @@ const updateProfile = asyncHandler(async (req, res) => {
 const getLeaderboard = asyncHandler(async (req, res) => {
     // 1. Fetch the top 10 users, sorted by points (highest to lowest)
     // Adjust the query if you need to filter by role: { role: 'student' }
-    const topStudents = await User.find({ totalPoints: { $gt: 0 } }) 
-        .sort({ totalPoints: -1 })
+    const topStudents = await User.find({ "stats.shopPoints": { $gt: 0 } }) 
+        .sort({ "stats.shopPoints": -1 })
         .limit(10)
-        .select('username fullname profilePicture totalPoints');
+        .select('username fullname profilePicture "stats.shopPoints"');
 
     // 2. Get the current user's fresh data from the DB
     const currentUser = await User.findById(req.user._id);
-    const myPoints = currentUser.totalPoints || 0;
+    const myPoints = currentUser.stats.shopPoints || 0;
 
     // 3. Calculate the current user's global rank
-    const myRank = await User.countDocuments({ totalPoints: { $gt: myPoints } }) + 1;
+    const myRank = await User.countDocuments({ "stats.shopPoints": { $gt: myPoints } }) + 1;
 
     return res.status(200).json(
         new ApiResponse(200, {
             leaderboard: topStudents,
             myStats: {
-                totalPoints: myPoints,
+                "stats.shopPoints": myPoints,
                 rank: myRank
             }
         }, "Leaderboard fetched successfully")
