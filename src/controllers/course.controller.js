@@ -6,198 +6,255 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 
-//functions for coach
+// ==========================================
+// COURSE MANAGEMENT (COACH)
+// ==========================================
 
 const createCourse = asyncHandler(async (req, res) => {
-    // Coach provides title, syllabus, and optionally a list of student IDs
-    const { title, description, syllabusId, studentIds } = req.body;
+  const { title, description, syllabusId, studentIds } = req.body;
 
-    if (!title || !syllabusId) {
-        throw new ApiError(400, "Title and syllabus are required");
+  if (!title || !syllabusId) {
+    throw new ApiError(400, "Title and syllabus are required");
+  }
+
+  // Fast existence check without hydrating full syllabus document
+  const syllabusExists = await Syllabus.exists({ _id: syllabusId });
+  if (!syllabusExists) {
+    throw new ApiError(404, "Syllabus not found");
+  }
+
+  let validStudentIds = [];
+  if (studentIds && studentIds.length > 0) {
+    // Only select _id to validate presence rapidly
+    const students = await User.find({
+      _id: { $in: studentIds },
+      role: "student",
+    })
+      .select("_id")
+      .lean();
+
+    if (students.length !== studentIds.length) {
+      throw new ApiError(
+        400,
+        "One or more provided student IDs are invalid or do not belong to a student."
+      );
     }
+    validStudentIds = students.map((s) => s._id);
+  }
 
-    const syllabusExists = await Syllabus.findById(syllabusId);
-    if (!syllabusExists) {
-        throw new ApiError(404, "Syllabus not found");
-    }
+  const course = await Course.create({
+    title,
+    description,
+    syllabus: syllabusId,
+    coach: req.user._id,
+    students: validStudentIds,
+  });
 
-    // Optional: Validate the provided student IDs
-    let validStudentIds = [];
-    if (studentIds && studentIds.length > 0) {
-        const students = await User.find({ '_id': { $in: studentIds }, 'role': 'student' });
-        if (students.length !== studentIds.length) {
-            throw new ApiError(400, "One or more provided student IDs are invalid or do not belong to a student.");
-        }
-        validStudentIds = students.map(s => s._id);
-    }
-
-    const course = await Course.create({
-        title,
-        description,
-        syllabus: syllabusId,
-        coach: req.user._id,
-        students: validStudentIds // Add the validated students
-    });
-
-    return res.status(201).json(new ApiResponse(201, course, "Course created successfully"));
+  return res
+    .status(201)
+    .json(new ApiResponse(201, course, "Course created successfully"));
 });
 
-
 const updateCourse = asyncHandler(async (req, res) => {
-    const { courseId } = req.params;
-    const { title, description } = req.body;
+  const { courseId } = req.params;
+  const { title, description } = req.body;
 
-    const course = await Course.findById(courseId);
-    if (!course) {
-        throw new ApiError(404, "Course not found");
+  // Single atomic find and update scoped to the authorized coach
+  const updatedCourse = await Course.findOneAndUpdate(
+    { _id: courseId, coach: req.user._id },
+    { $set: { title, description } },
+    { new: true, runValidators: true }
+  ).lean();
+
+  if (!updatedCourse) {
+    const courseExists = await Course.exists({ _id: courseId });
+    if (!courseExists) {
+      throw new ApiError(404, "Course not found");
     }
+    throw new ApiError(403, "You are not authorized to update this course");
+  }
 
-    if (course.coach.toString() !== req.user._id.toString()) {
-        throw new ApiError(403, "You are not authorized to update this course");
-    }
-
-    const updatedCourse = await Course.findByIdAndUpdate(
-        courseId,
-        { $set: { title, description } },
-        { new: true }
-    );
-
-    return res.status(200).json(new ApiResponse(200, updatedCourse, "Course updated successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedCourse, "Course updated successfully"));
 });
 
 const deleteCourse = asyncHandler(async (req, res) => {
-    const { courseId } = req.params;
+  const { courseId } = req.params;
 
-    const course = await Course.findById(courseId);
-    if (!course) {
-        throw new ApiError(404, "Course not found");
+  // Single atomic deletion scoped to the authorized coach
+  const deletedCourse = await Course.findOneAndDelete({
+    _id: courseId,
+    coach: req.user._id,
+  }).lean();
+
+  if (!deletedCourse) {
+    const courseExists = await Course.exists({ _id: courseId });
+    if (!courseExists) {
+      throw new ApiError(404, "Course not found");
     }
+    throw new ApiError(403, "You are not authorized to delete this course");
+  }
 
-    if (course.coach.toString() !== req.user._id.toString()) {
-        throw new ApiError(403, "You are not authorized to delete this course");
-    }
-
-    await Course.findByIdAndDelete(courseId);
-
-    return res.status(200).json(new ApiResponse(200, {}, "Course deleted successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Course deleted successfully"));
 });
 
 const addStudentToCourse = asyncHandler(async (req, res) => {
-    const { courseId } = req.params;
-    const { studentId } = req.body;
+  const { courseId } = req.params;
+  const { studentId } = req.body;
 
-    const course = await Course.findById(courseId);
-    if (!course) {
-        throw new ApiError(404, "Course not found");
+  // Check student validity with a lightweight projection
+  const studentExists = await User.exists({ _id: studentId, role: "student" });
+  if (!studentExists) {
+    throw new ApiError(404, "Student not found or is not a valid student");
+  }
+
+  const updatedCourse = await Course.findOneAndUpdate(
+    { _id: courseId, coach: req.user._id },
+    { $addToSet: { students: studentId } },
+    { new: true }
+  ).lean();
+
+  if (!updatedCourse) {
+    const courseExists = await Course.exists({ _id: courseId });
+    if (!courseExists) {
+      throw new ApiError(404, "Course not found");
     }
+    throw new ApiError(403, "You are not authorized to modify this course");
+  }
 
-    if (course.coach.toString() !== req.user._id.toString()) {
-        throw new ApiError(403, "You are not authorized to modify this course");
-    }
-
-    const studentExists = await User.findById(studentId);
-    if (!studentExists || studentExists.role !== 'student') {
-        throw new ApiError(404, "Student not found");
-    }
-
-    const updatedCourse = await Course.findByIdAndUpdate(
-        courseId,
-        { $addToSet: { students: studentId } },
-        { new: true }
-    );
-
-    return res.status(200).json(new ApiResponse(200, updatedCourse, "Student added successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedCourse, "Student added successfully"));
 });
 
 const removeStudentFromCourse = asyncHandler(async (req, res) => {
-    const { courseId, studentId } = req.params;
+  const { courseId, studentId } = req.params;
 
-    const course = await Course.findById(courseId);
-    if (!course) {
-        throw new ApiError(404, "Course not found");
+  const updatedCourse = await Course.findOneAndUpdate(
+    { _id: courseId, coach: req.user._id },
+    { $pull: { students: studentId } },
+    { new: true }
+  ).lean();
+
+  if (!updatedCourse) {
+    const courseExists = await Course.exists({ _id: courseId });
+    if (!courseExists) {
+      throw new ApiError(404, "Course not found");
     }
+    throw new ApiError(403, "You are not authorized to modify this course");
+  }
 
-    if (course.coach.toString() !== req.user._id.toString()) {
-        throw new ApiError(403, "You are not authorized to modify this course");
-    }
-
-    const updatedCourse = await Course.findByIdAndUpdate(
-        courseId,
-        { $pull: { students: studentId } },
-        { new: true }
-    );
-
-    return res.status(200).json(new ApiResponse(200, updatedCourse, "Student removed successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedCourse, "Student removed successfully"));
 });
 
+// ==========================================
+// COURSE & SYLLABUS QUERIES (OPTIMIZED READS)
+// ==========================================
+
 const getMyCoursesAsCoach = asyncHandler(async (req, res) => {
-    const courses = await Course.find({ coach: req.user._id })
-        .populate("students", "username fullname email")
-        .populate({
-            path: "syllabus",
-            populate: { path: "techniques" }
-        });
-        
-    return res.status(200).json(new ApiResponse(200, courses, "Coach's courses retrieved successfully"));
+  const courses = await Course.find({ coach: req.user._id })
+    .populate("students", "username fullname email")
+    .populate({
+      path: "syllabus",
+      select: "title level description techniques",
+      populate: {
+        path: "techniques",
+        select: "name lichessUrl description category",
+      },
+    })
+    .lean();
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, courses, "Coach's courses retrieved successfully")
+    );
 });
 
 const getAllSyllabi = asyncHandler(async (req, res) => {
-    const syllabi = await Syllabus.find({}).populate("techniques", "name lichessUrl");
-    if (!syllabi || syllabi.length === 0) {
-        throw new ApiError(404, "No syllabi found");
-    }
-    return res.status(200).json(new ApiResponse(200, syllabi, "Syllabi retrieved successfully"));
+  const syllabi = await Syllabus.find({})
+    .populate("techniques", "name lichessUrl")
+    .lean();
+
+  if (!syllabi || syllabi.length === 0) {
+    throw new ApiError(404, "No syllabi found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, syllabi, "Syllabi retrieved successfully"));
 });
 
 const getAllCourses = asyncHandler(async (req, res) => {
-    const courses = await Course.find({})
-        .populate("coach", "username fullname")
-        .populate({
-            path: "syllabus",
-            select: "level"
-        });
+  const courses = await Course.find({})
+    .populate("coach", "username fullname")
+    .populate({
+      path: "syllabus",
+      select: "level title",
+    })
+    .lean();
 
-    return res.status(200).json(new ApiResponse(200, courses, "All courses retrieved successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, courses, "All courses retrieved successfully"));
 });
 
 const getCourseById = asyncHandler(async (req, res) => {
-    const { courseId } = req.params;
-    const course = await Course.findById(courseId)
-        .populate("coach", "username fullname")
-        .populate("students", "username fullname")
-        .populate({
-            path: "syllabus",
-            populate: { path: "techniques" }
-        });
+  const { courseId } = req.params;
+  const course = await Course.findById(courseId)
+    .populate("coach", "username fullname")
+    .populate("students", "username fullname")
+    .populate({
+      path: "syllabus",
+      populate: {
+        path: "techniques",
+        select: "name lichessUrl description category",
+      },
+    })
+    .lean();
 
-    if (!course) {
-        throw new ApiError(404, "Course not found");
-    }
+  if (!course) {
+    throw new ApiError(404, "Course not found");
+  }
 
-    return res.status(200).json(new ApiResponse(200, course, "Course details retrieved successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, course, "Course details retrieved successfully"));
 });
 
 const getMyEnrolledCoursesAsStudent = asyncHandler(async (req, res) => {
-    const courses = await Course.find({ students: req.user._id })
-        .populate("coach", "username fullname")
-        .populate({
-            path: "syllabus",
-            populate: { path: "techniques" }
-        });
-        
-    return res.status(200).json(new ApiResponse(200, courses, "Enrolled courses retrieved successfully"));
+  const courses = await Course.find({ students: req.user._id })
+    .populate("coach", "username fullname")
+    .populate({
+      path: "syllabus",
+      populate: {
+        path: "techniques",
+        select: "name lichessUrl description category",
+      },
+    })
+    .lean();
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, courses, "Enrolled courses retrieved successfully")
+    );
 });
 
-
 export {
-    createCourse,
-    updateCourse,
-    deleteCourse,
-    addStudentToCourse,
-    removeStudentFromCourse,
-    getMyCoursesAsCoach,
-    getAllSyllabi,
-    getAllCourses,
-    getCourseById,
-    getMyEnrolledCoursesAsStudent
-}
+  createCourse,
+  updateCourse,
+  deleteCourse,
+  addStudentToCourse,
+  removeStudentFromCourse,
+  getMyCoursesAsCoach,
+  getAllSyllabi,
+  getAllCourses,
+  getCourseById,
+  getMyEnrolledCoursesAsStudent,
+};

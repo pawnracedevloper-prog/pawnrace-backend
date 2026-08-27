@@ -1,21 +1,55 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 const { Schema, model } = mongoose;
 
-const courseSchema = new Schema({
-    title: { type: String, required: true, trim: true },
-    coach: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    students: [{ type: Schema.Types.ObjectId, ref: 'User' }],
-    
+const courseSchema = new Schema(
+  {
+    title: { 
+      type: String, 
+      required: true, 
+      trim: true 
+    },
+    description: { 
+      type: String, 
+      trim: true,
+      default: ""
+    },
+    coach: { 
+      type: Schema.Types.ObjectId, 
+      ref: "User", 
+      required: true,
+      index: true // Speeds up getMyCoursesAsCoach
+    },
+    students: [{ 
+      type: Schema.Types.ObjectId, 
+      ref: "User",
+      index: true // Speeds up getMyEnrolledCoursesAsStudent
+    }],
+
     // Level Cache
-    level: { type: String, default: 'Beginner 1' },
+    level: { 
+      type: String, 
+      default: "Beginner 1" 
+    },
 
     // Link to Syllabus
-    syllabus: { type: Schema.Types.ObjectId, ref: 'Syllabus', required: true },
+    syllabus: { 
+      type: Schema.Types.ObjectId, 
+      ref: "Syllabus", 
+      required: true,
+      index: true 
+    },
 
-    // CHANGED: We now track completed CHAPTER IDs, not Technique IDs
+    // Track completed chapter IDs
     completedChapters: [{
-        type: Schema.Types.ObjectId
+      type: Schema.Types.ObjectId
     }]
-}, { timestamps: true });
+  },
+  { 
+    timestamps: true 
+  }
+);
 
-export const Course = model('Course', courseSchema);
+// Compound Index for coach-specific authorization checks and mutations
+courseSchema.index({ coach: 1, createdAt: -1 });
+
+export const Course = model("Course", courseSchema);

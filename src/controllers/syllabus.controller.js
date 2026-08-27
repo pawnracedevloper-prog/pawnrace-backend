@@ -70,6 +70,7 @@ export const getSyllabusForCourse = async (req, res) => {
             await course.save();
         }
 
+        // OPTIMIZATION: Populate is required here, but we don't need heavy documents for the mapped output
         await course.populate({ path: 'syllabus', populate: { path: 'techniques' } });
 
         // Completed Chapters Bucket
@@ -77,7 +78,6 @@ export const getSyllabusForCourse = async (req, res) => {
 
         // Map Data
         const techniquesWithStatus = course.syllabus.techniques.map(tech => {
-            // Map chapters with status
             const chaptersWithStatus = tech.chapters.map(ch => ({
                 _id: ch._id,
                 name: ch.name,
@@ -123,17 +123,14 @@ export const toggleChapter = async (req, res) => {
             status = 'completed';
 
             // --- LEVEL UP CHECK ---
-            // 1. Flatten all chapters in this level into one array of IDs
             const allChapterIds = course.syllabus.techniques.reduce((acc, tech) => {
                 return acc.concat(tech.chapters.map(c => c._id.toString()));
             }, []);
 
-            // 2. Count matches
             const completedCount = allChapterIds.filter(id => 
                 course.completedChapters.map(String).includes(id)
             ).length;
 
-            // 3. Promote if all done (and chapters exist)
             if (allChapterIds.length > 0 && completedCount === allChapterIds.length) {
                 const currentIdx = LEVEL_ORDER.indexOf(course.level);
                 if (currentIdx !== -1 && currentIdx < LEVEL_ORDER.length - 1) {
@@ -161,14 +158,16 @@ export const toggleChapter = async (req, res) => {
     }
 };
 
-// ... (Get All/Global remain similar, just ensuring they populate properly)
+// --- 5. GLOBAL QUERIES (OPTIMIZED READS) ---
+
 export const getAllSyllabus = async (req, res) => {
-    // ... same as before
-    const all = await Syllabus.find().populate('techniques').sort({ level: 1 });
+    // OPTIMIZATION: Added .lean() to prevent Mongoose hydration overhead on large arrays
+    const all = await Syllabus.find().populate('techniques').sort({ level: 1 }).lean();
     res.status(200).json(new ApiResponse(200, all, "Fetched"));
 };
+
 export const getGlobalSyllabus = async (req, res) => {
-    // ... same as before
-    const s = await Syllabus.findOne({ level: req.params.level }).populate('techniques');
+    // OPTIMIZATION: Added .lean() for faster read access
+    const s = await Syllabus.findOne({ level: req.params.level }).populate('techniques').lean();
     res.status(200).json(new ApiResponse(200, s || { techniques: [] }, "Fetched"));
 };

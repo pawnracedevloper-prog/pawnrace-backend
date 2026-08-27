@@ -31,7 +31,8 @@ app.use(cors({
         "http://localhost:8080",
         "https://pawnrace-launchpad.vercel.app"
     ],
-    credentials: true
+    credentials: true,
+    maxAge: 86400 // OPTIMIZATION: Caches OPTIONS preflight requests for 24 hours
 }));
 
 app.use(express.json({ limit: "10kb" }));
@@ -39,6 +40,10 @@ app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
+// OPTIMIZATION: Health check route for Render cron-job to prevent cold starts
+app.get("/api/v1/ping", (req, res) => {
+    res.status(200).json({ success: true, message: "Server is awake" });
+});
 
 import userRouter from "./routes/user.route.js";
 import courseRouter from "./routes/course.route.js";
@@ -54,7 +59,6 @@ import livekitRouter from './routes/livekit.route.js';
 import testSubmissionRouter from './routes/test-submission.route.js';
 import iqPuzzleRouter from './routes/iq_puzzle.route.js';
 
-
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/courses", courseRouter);
 app.use("/api/v1/assignments", assignmentRouter);
@@ -68,9 +72,8 @@ app.use('/api/v1/syllabus', syllabusRouter);
 app.use('/api/v1/livekit', livekitRouter);
 app.use('/api/v1/test-submissions', testSubmissionRouter);
 app.use("/api/v1/iq-puzzles", iqPuzzleRouter);
+
 // Error Handler
-
-
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500;
     const message = err.message || "Internal Server Error";
