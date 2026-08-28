@@ -215,31 +215,78 @@ const updateProfile = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, updatedUser, "Profile updated"));
 });
 
-const getLeaderboard = asyncHandler(async (req, res) => {
-    // 1. Fetch the top 10 users, sorted by points (highest to lowest)
-    // Adjust the query if you need to filter by role: { role: 'student' }
-    const topStudents = await User.find({ "stats.shopPoints": { $gt: 0 } }) 
-        .sort({ "stats.shopPoints": -1 })
-        .limit(10)
-        .select('username fullname profilePicture "stats.shopPoints"');
+const getLeaderboard = async (req, res, next) => {
+    try {
+        const { sortBy = "rating", page = 1, limit = 10 } = req.query;
+        
+        const pageNum = parseInt(page, 10);
+        const limitNum = parseInt(limit, 10);
+        const skip = (pageNum - 1) * limitNum;
 
-    // 2. Get the current user's fresh data from the DB
-    const currentUser = await User.findById(req.user._id);
-    const myPoints = currentUser.stats.shopPoints || 0;
+        // 1. Sort Logic (with createdAt tie-breaker for consistent pagination)
+        const sortQuery = {};
+        if (sortBy === "rating") {
+            sortQuery["stats.rating"] = -1; 
+        } else {
+            sortQuery["stats.shopPoints"] = -1; 
+        }
+        sortQuery["createdAt"] = 1; 
 
-    // 3. Calculate the current user's global rank
-    const myRank = await User.countDocuments({ "stats.shopPoints": { $gt: myPoints } }) + 1;
+        // 2. Fetch strictly "student" roles for the current page
+        const students = await User.find({ role: "student" })
+            .sort(sortQuery)
+            .skip(skip)
+            .limit(limitNum)
+            .select("username fullname profilePicture stats totalPoints")
+            .lean();
 
-    return res.status(200).json(
-        new ApiResponse(200, {
-            leaderboard: topStudents,
-            myStats: {
-                "stats.shopPoints": myPoints,
-                rank: myRank
+        // 3. Assign true global ranks to the current page's array
+        const leaderboard = students.map((student, index) => ({
+            ...student,
+            rank: skip + index + 1
+        }));
+
+        // 4. Calculate Current User's Global Rank (Without loading the whole DB)
+        let myStats = null;
+        if (req.user.role === "student") {
+            const me = await User.findById(req.user._id).select("stats totalPoints").lean();
+            
+            const myScore = sortBy === "rating" 
+                ? (me?.stats?.rating || 1200) 
+                : (me?.stats?.shopPoints || me?.totalPoints || 0);
+
+            // Count how many students have a strictly higher score
+            const higherScoreQuery = { role: "student" };
+            higherScoreQuery[sortBy === "rating" ? "stats.rating" : "stats.shopPoints"] = { $gt: myScore };
+            
+            const higherCount = await User.countDocuments(higherScoreQuery);
+            
+            myStats = {
+                ...me,
+                rank: higherCount + 1, // Global Rank
+                totalPoints: myScore
+            };
+        }
+
+        const totalStudents = await User.countDocuments({ role: "student" });
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                leaderboard,
+                myStats,
+                pagination: {
+                    currentPage: pageNum,
+                    totalPages: Math.ceil(totalStudents / limitNum),
+                    totalRecords: totalStudents
+                }
             }
-        }, "Leaderboard fetched successfully")
-    );
-});
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
 
 export { 
     registerUser, 
