@@ -49,6 +49,14 @@ const userSchema = new Schema({
         shopPoints: { type: Number, default: 0 }, 
         rating: { type: Number, default: 1200 }, 
     },
+    inventory: {
+    type: [String],
+    default: ["basic"] // Every student starts with the default board
+    },
+  equippedBoardSkin: {
+    type: String,
+    default: "basic"
+  },
     completions: {
         assignments: [{ type: Schema.Types.ObjectId, ref: "Assignment" }],
         tests: [{ type: Schema.Types.ObjectId, ref: "Test" }],
